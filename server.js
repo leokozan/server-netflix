@@ -4,7 +4,7 @@ var cors = require('cors');
 const axios = require('axios');
 const jwt = require("jsonwebtoken");
 const DNS = 'https://api.themoviedb.org/3'
-const API_KEY = 'e509c1a6fa8d43c983263b5847f37a58'
+const API_KEY = ''
 const secretKey = "123";
 var app = express();
 app.use(express.json());
@@ -63,8 +63,11 @@ function findIdadeByID(userID,filmes){
         }
     })
     if(idade<18){
-      console.log(filmes)
-      return filmes.filter((filme)=>filme.adult==false)
+      let filmesFiltrados =filmes.results;
+      let filmesFiltrados2 = filmesFiltrados.filter((filme)=>filme.adult===false);
+      console.log(filmesFiltrados2)
+      filmes.results = filmesFiltrados2
+      return filmes
     }else{
       return filmes
     }
@@ -98,10 +101,8 @@ app.post('/login', (req, res, next)=>{
 app.post('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
-          console.log('deu errado')
             return res.status(500).json({ message: 'Logout failed.' });
         }
-        console.log('deu cert')
         res.status(200).json({ message: 'Logout successful.' });
     });
 });
@@ -132,7 +133,8 @@ app.get('/movies/popular',verifyJWT, async(req, res) => {
 app.get('/movies/netflixOriginals', verifyJWT,async(req, res) => {
     try {
       const response = await axios.get(`${DNS}/discover/tv?api_key=${API_KEY}&with_networks=213`);
-      res.json(response.data);
+      let filmesFiltrado = findIdadeByID(sessionData.usuarioID,response.data)
+      res.json(filmesFiltrado);
     } catch (error) {
       res.status(500).json({ error: 'Erro ao buscar filmes populares' });
     }
@@ -141,7 +143,8 @@ app.get('/movies/netflixOriginals', verifyJWT,async(req, res) => {
 app.get('/movies/topRated',verifyJWT, async(req, res) => {
     try {
       const response = await axios.get(`${DNS}/movie/top_rated?api_key=${API_KEY}&language=pt-BR`);
-      res.json(response.data);
+      let filmesFiltrado = findIdadeByID(sessionData.usuarioID,response.data)
+      res.json(filmesFiltrado);
     } catch (error) {
       res.status(500).json({ error: 'Erro ao buscar filmes populares' });
     }
@@ -150,7 +153,8 @@ app.get('/movies/topRated',verifyJWT, async(req, res) => {
 app.get('/movies/comedy',verifyJWT, async(req, res) => {
     try {
       const response = await axios.get(`${DNS}/discover/tv?api_key=${API_KEY}&with_genres=35`);
-      res.json(response.data);
+      let filmesFiltrado = findIdadeByID(sessionData.usuarioID,response.data)
+      res.json(filmesFiltrado);
     } catch (error) {
       res.status(500).json({ error: 'Erro ao buscar filmes populares' });
     }
