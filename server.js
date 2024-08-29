@@ -4,7 +4,7 @@ var cors = require('cors');
 const axios = require('axios');
 const jwt = require("jsonwebtoken");
 const DNS = 'https://api.themoviedb.org/3'
-const API_KEY = ''
+const API_KEY = 'e509c1a6fa8d43c983263b5847f37a58'
 const secretKey = "123";
 var app = express();
 app.use(express.json());
@@ -31,19 +31,19 @@ const generateToken = (userID) => {
     return jwt.sign({userID}, secretKey, { expiresIn: 60 * 60});
 };
 
-function verifyJWT(req, res, next){
-    let token = req.body.sessionID
-    if (!token) return res.status(401).json({ auth: false, message: 'No token provided.' });
-    
-    jwt.verify(token, secretKey, function(err, decoded) {
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Assume o formato "Bearer <token>"
+
+  if (!token) return res.status(401).json({ auth: false, message: 'No token provided.' });
+
+  jwt.verify(token, secretKey, (err, decoded) => {
       if (err) return res.status(500).json({ auth: false, message: 'Failed to authenticate token.' });
-      
-      // se tudo estiver ok, salva na sessão para uso posterior
+
       req.session.usuarioID = decoded.userID;
       next();
-    });
+  });
 }
-
 function findUserByID(userID){
     let encontrado = {}
     
@@ -55,16 +55,19 @@ function findUserByID(userID){
     
     return encontrado
 }
-function findIdadeByID(userID){
+function findIdadeByID(userID,filmes){
     let idade = {}
-    
     dados.usuarios.forEach((usuario)=>{
         if(usuario.id==userID){
             idade = usuario.idade
         }
     })
-    
-    return idade
+    if(idade<18){
+      console.log(filmes)
+      return filmes.filter((filme)=>filme.adult==false)
+    }else{
+      return filmes
+    }
 }
 app.post('/login', (req, res, next)=>{
 
@@ -95,8 +98,10 @@ app.post('/login', (req, res, next)=>{
 app.post('/logout', (req, res) => {
     req.session.destroy((err) => {
         if (err) {
+          console.log('deu errado')
             return res.status(500).json({ message: 'Logout failed.' });
         }
+        console.log('deu cert')
         res.status(200).json({ message: 'Logout successful.' });
     });
 });
@@ -113,19 +118,18 @@ app.post('/test', verifyJWT, (req, res, next)=>{
 
 // Rotas para os filmes
 
-app.post('/movies/popular',verifyJWT, async(req, res) => {
+app.get('/movies/popular',verifyJWT, async(req, res) => {
     const sessionData = req.session;
-    let usuario = findIdadeByID(sessionData.usuarioID)
-    console.log(usuario)
     try {
       const response = await axios.get(`${DNS}/trending/all/week?api_key=${API_KEY}&language=pt-BR`);
-      res.json(response.data);
+      let filmesFiltrado = findIdadeByID(sessionData.usuarioID,response.data)
+      res.json(filmesFiltrado);
     } catch (error) {
       res.status(500).json({ error: 'Erro ao buscar filmes populares' });
     }
   });
   
-app.post('/movies/netflixOriginals', verifyJWT,async(req, res) => {
+app.get('/movies/netflixOriginals', verifyJWT,async(req, res) => {
     try {
       const response = await axios.get(`${DNS}/discover/tv?api_key=${API_KEY}&with_networks=213`);
       res.json(response.data);
@@ -134,7 +138,7 @@ app.post('/movies/netflixOriginals', verifyJWT,async(req, res) => {
     }
   });
   
-app.post('/movies/topRated',verifyJWT, async(req, res) => {
+app.get('/movies/topRated',verifyJWT, async(req, res) => {
     try {
       const response = await axios.get(`${DNS}/movie/top_rated?api_key=${API_KEY}&language=pt-BR`);
       res.json(response.data);
@@ -143,7 +147,7 @@ app.post('/movies/topRated',verifyJWT, async(req, res) => {
     }
   });
   
-app.post('/movies/comedy',verifyJWT, async(req, res) => {
+app.get('/movies/comedy',verifyJWT, async(req, res) => {
     try {
       const response = await axios.get(`${DNS}/discover/tv?api_key=${API_KEY}&with_genres=35`);
       res.json(response.data);
